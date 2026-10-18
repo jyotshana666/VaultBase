@@ -1,0 +1,196 @@
+version: '3.8'
+
+# VaultBase Docker Compose Configuration
+# ======================================
+# This file orchestrates all VaultBase services for local development and testing.
+# For production deployment, use environment-specific overrides and secrets management.
+
+services:
+  # ---------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: vaultbase-postgres
+    environment:
+      POSTGRES_DB: vaultbase
+      POSTGRES_USER: vaultbase_admin
+      # In production, override with: POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vaultbase_dev_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      # Expose only on localhost by default for security
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vaultbase_admin -d vaultbase"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - vaultbase_internal
+    restart: unless-stopped
+    # Security: Run as non-root user (postgres image does this by default)
+    # Resource limits (optional - adjust for production)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 1G
+
+  # ---------------------------------------------------------------------
+  # Redis (Ephemeral state: OTP, WebAuthn challenges, rate limiting)
+  # ---------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: vaultbase-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-} --appendonly yes
+    # In production, set REDIS_PASSWORD via secrets
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    ports:
+      # Expose only on localhost by default; remove 127.0.0.1 to expose externally
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - vaultbase_internal
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------
+  # Backend API (Auth, Session Management, Risk Engine)
+  # ---------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vaultbase-backend
+    environment:
+      # Core Configuration
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=5000
+
+      # PostgreSQL Connection (via service name)
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=vaultbase
+      - POSTGRES_USER=vaultbase_admin
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-vaultbase_dev_secret}
+
+      # Redis Connection (via service name)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+      # Security Secrets (MUST be set in production!)
+      - JWT_SECRET=${JWT_SECRET:-vaultbase-dev-secret-change-in-prod}
+      - OTP_SECRET=${OTP_SECRET:-vaultbase-otp-secret-salt-key-dev}
+
+      # WebAuthn Configuration (configure for production domain)
+      - WEBAUTHN_RP_ID=${WEBAUTHN_RP_ID:-localhost}
+      - WEBAUTHN_RP_NAME=${WEBAUTHN_RP_NAME:-VaultBase}
+      - WEBAUTHN_ORIGIN=${WEBAUTHN_ORIGIN:-http://localhost:5000}
+
+      # CORS Origins (configure for production)
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8080,http://localhost:3000,chrome-extension://*}
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    networks:
+      - vaultbase_internal
+      - vaultbase_external
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------
+  # DemoBank (Reference application for testing)
+  # ---------------------------------------------------------------------
+  demo-bank:
+    build:
+      context: ./demo-bank
+      dockerfile: Dockerfile
+    container_name: vaultbase-demo-bank
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=8080
+      # Backend URL for DemoBank to communicate with VaultBase
+      - BACKEND_URL=http://backend:5000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    networks:
+      - vaultbase_external
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------
+  # Security Dashboard (React SPA)
+  # ---------------------------------------------------------------------
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: vaultbase-dashboard
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3000
+      # Backend URL for Dashboard API calls
+      - REACT_APP_API_URL=http://localhost:5000
+      - REACT_APP_BACKEND_URL=http://localhost:5000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - vaultbase_external
+    restart: unless-stopped
+
+# ---------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------
+networks:
+  vaultbase_internal:
+    # Internal network for database and cache services
+    # Only accessible by services on this network
+    driver: bridge
+    internal: true
+
+  vaultbase_external:
+    # External network for browser-facing services
+    # Allows ingress from host machine
+    driver: bridge
+
+# ---------------------------------------------------------------------
+# Named Volumes for Persistence
+# ---------------------------------------------------------------------
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres
+
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis

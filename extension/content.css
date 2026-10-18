@@ -1,0 +1,85 @@
+/* VaultBase — Injected Button Styles */
+
+.vaultbase-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  padding: 11px 18px;
+  margin: 0;
+  background: #0a0a0a;
+  color: #ffffff;
+  border: 1.5px solid #0a0a0a;
+  border-radius: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.1s ease;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow: hidden;
+}
+
+.vaultbase-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.vaultbase-btn:hover {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+  transform: translateY(-1px);
+}
+
+.vaultbase-btn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.vb-lock {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.vb-text {
+  flex: 1;
+  text-align: center;
+}
+
+.vb-badge {
+  font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.vb-divider {
+  display: flex;
+  align-items: center;
+  margin: 14px 0 12px;
+  gap: 10px;
+  color: #9ca3af;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+}
+
+.vb-divider::before,
+.vb-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}

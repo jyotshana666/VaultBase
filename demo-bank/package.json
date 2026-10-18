@@ -1,0 +1,9 @@
+{
+  "name": "vaultbase-demo-bank",
+  "version": "1.0.0",
+  "description": "DemoBank reference website demonstrating VaultBase authentication",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

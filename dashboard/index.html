@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VaultBase — Security Control Center</title>
+  <meta name="description" content="VaultBase Security Center: Live monitoring, device trust, session security, and risk event visibility." />
+  <link rel="stylesheet" href="./styles/dashboard.css" />
+  <!-- Socket.io client -->
+  <script src="http://localhost:5000/socket.io/socket.io.js" onerror="console.warn('Socket.io server offline')"></script>
+  <!-- React 18 and ReactDOM via CDN for lightweight standalone operation -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- Babel standalone for JSX interpretation in static dev environment -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Inline Dashboard bootstrap module -->
+  <script type="text/babel" data-type="module">
+    import { App } from './src/App.jsx';
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
